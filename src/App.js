@@ -4,6 +4,7 @@ import { OrbitControls } from "@react-three/drei";
 
 function App() {
   const [gameBoard, setGameBoard] = useState(Array(27).fill(null));
+  const [hovered, setHovered] = useState(null);
   const spacing = 2.5; // Adjust this value to increase or decrease spacing
 
   function calculatePosition(index) {
@@ -46,10 +47,12 @@ function App() {
             key={index}
             position={calculatePosition(index)}
             onClick={() => handleClick(index)}
+            onPointerOver={() => setHovered(index)}
+            onPointerOut={() => setHovered(null)}
             castShadow
           >
             <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color={cell ? "red" : "gray"} />
+            <meshStandardMaterial color={hovered === index ? "yellow" : cell ? "red" : "gray"} />
           </mesh>
         ))}
       </Canvas>
@@ -57,4 +60,4 @@ function App() {
   );
 }
 
-export default React.memo(App);
+export default App;
