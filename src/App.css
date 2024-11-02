@@ -35,3 +35,60 @@
   width: 1000vw;
   height: 1000vh;
 }
+
+.game-container {
+  width: 100vw;
+  height: 100vh;
+}
+
+.turn-indicator {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 18px;
+}
+
+.winner-info {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.game-info {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1;
+  color: white;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.winner-info button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.winner-info button:hover {
+  background-color: #45a049;
+}
