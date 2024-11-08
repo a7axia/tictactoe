@@ -20,7 +20,25 @@ function init() {
     document.getElementById('canvas1').appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
+
+    // Create a canvas for the gradient
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+
+    // Create a vertical gradient
+    const gradient = context.createLinearGradient(0, 0, 0, 256);
+    gradient.addColorStop(0, '#87ceeb'); // Light sky blue
+    gradient.addColorStop(1, '#ffffff'); // White
+
+    // Fill the canvas with the gradient
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 1, 256);
+
+    // Create a texture and set it as the background
+    const bgTexture = new THREE.CanvasTexture(canvas);
+    scene.background = bgTexture;
 
     gameBoard = Array(27).fill(null);
 
@@ -237,35 +255,88 @@ function resetGame() {
 }
 
 function calculateWinner(board) {
-    const lines = [
-        // horizontal
-        [0,1,2], [3,4,5], [6,7,8],
-        [9,10,11], [12,13,14], [15,16,17],
-        [18,19,20], [21,22,23], [24,25,26],
+    const lines = [];
 
-        // vertical
-        [0,9,18], [1,10,19], [2,11,20],
-        [3,12,21], [4,13,22], [5,14,23],
-        [6,15,24], [7,16,25], [8,17,26],
+    // Horizontal lines in each layer
+    for (let layer = 0; layer < 3; layer++) {
+        for (let row = 0; row < 3; row++) {
+            lines.push([
+                layer * 9 + row * 3 + 0,
+                layer * 9 + row * 3 + 1,
+                layer * 9 + row * 3 + 2
+            ]);
+        }
+    }
 
-        //depth
-        [0,3,6], [9,12,15], [18,21,24],
-        [1,4,7], [10,13,16], [19,22,25],
-        [2,5,8], [11,14,17], [20,23,26],
+    // Vertical lines in each layer
+    for (let layer = 0; layer < 3; layer++) {
+        for (let col = 0; col < 3; col++) {
+            lines.push([
+                layer * 9 + 0 * 3 + col,
+                layer * 9 + 1 * 3 + col,
+                layer * 9 + 2 * 3 + col
+            ]);
+        }
+    }
 
-        // diagonal
-        [0,4,8], [18,22,26],
-        [2,4,6], [20,22,24],
-        [9,13,17], [11,13,15],
-        [0,13,26], [2,13,24],
-        [6,13,20], [8,13,18],
-        [0,10,20], [6,16,26],
-        [2,10,18], [8,16,24],
-        [0,12,24], [2,14,26],
-        [6,12,18], [8,14,20],
-        [18,22,26], [0,4,8],
-        [20,22,24], [2,4,6]
-    ];
+    // Diagonals in each layer
+    for (let layer = 0; layer < 3; layer++) {
+        lines.push([
+            layer * 9 + 0 * 3 + 0,
+            layer * 9 + 1 * 3 + 1,
+            layer * 9 + 2 * 3 + 2
+        ]);
+        lines.push([
+            layer * 9 + 0 * 3 + 2,
+            layer * 9 + 1 * 3 + 1,
+            layer * 9 + 2 * 3 + 0
+        ]);
+    }
+
+    // Vertical lines through layers
+    for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 3; col++) {
+            lines.push([
+                0 * 9 + row * 3 + col,
+                1 * 9 + row * 3 + col,
+                2 * 9 + row * 3 + col
+            ]);
+        }
+    }
+
+    // Diagonals through layers by rows
+    for (let row = 0; row < 3; row++) {
+        lines.push([
+            0 * 9 + row * 3 + 0,
+            1 * 9 + row * 3 + 1,
+            2 * 9 + row * 3 + 2
+        ]);
+        lines.push([
+            0 * 9 + row * 3 + 2,
+            1 * 9 + row * 3 + 1,
+            2 * 9 + row * 3 + 0
+        ]);
+    }
+
+    // Diagonals through layers by columns
+    for (let col = 0; col < 3; col++) {
+        lines.push([
+            0 * 9 + 0 * 3 + col,
+            1 * 9 + 1 * 3 + col,
+            2 * 9 + 2 * 3 + col
+        ]);
+        lines.push([
+            0 * 9 + 2 * 3 + col,
+            1 * 9 + 1 * 3 + col,
+            2 * 9 + 0 * 3 + col
+        ]);
+    }
+
+    // Spatial diagonals
+    lines.push([0, 13, 26]);
+    lines.push([2, 13, 24]);
+    lines.push([6, 13, 20]);
+    lines.push([8, 13, 18]);
 
     for (let line of lines) {
         const [a, b, c] = line;
