@@ -48,11 +48,23 @@ function init() {
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
 
+    controls.enablePan = true;       // movement
+    controls.enableZoom = true;      // scale
+    controls.enableRotate = true;    // rotation
+    controls.panSpeed = 0.3;
+    controls.rotateSpeed = 0.3;
+    controls.zoomSpeed = 0.4;
+    controls.minDistance = 5;
+    controls.maxDistance = 30;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
     raycaster = new THREE.Raycaster();
 
     document.addEventListener('mousemove', onDocumentMouseMove, false);
     document.addEventListener('click', onDocumentClick, false);
 
+    window.addEventListener('resize', onWindowResize, false);
     createUI();
 }
 
@@ -67,6 +79,33 @@ function setupLights() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(0, 10, 0);
     scene.add(directionalLight);
+
+
+    const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00];
+    const cornerLights = colors.map((color, index) => {
+        const light = new THREE.PointLight(color, 0.3);
+        const angle = (index / colors.length) * Math.PI * 2;
+        const radius = 8;
+        light.position.set(
+            Math.cos(angle) * radius,
+            2,
+            Math.sin(angle) * radius
+        );
+        return light;
+    });
+    cornerLights.forEach(light => scene.add(light));
+
+    window.gameLights = {
+        cornerLights,
+        update: function(time) {
+            cornerLights.forEach((light, index) => {
+                const angle = ((time / 3000) + (index / colors.length)) * Math.PI * 2;
+                const radius = 8;
+                light.position.x = Math.cos(angle) * radius;
+                light.position.z = Math.sin(angle) * radius;
+            });
+        }
+    };
 }
 
 function addObjects() {
@@ -110,6 +149,12 @@ function render() {
     renderer.render(scene, camera);
 }
 
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
 function update() {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(cells);
@@ -132,7 +177,13 @@ function update() {
             }
         }
     }
+
     controls.update();
+
+    if (window.gameLights) {
+        window.gameLights.update(performance.now());
+    }
+
 }
 
 function calculatePosition(index) {
@@ -218,6 +269,15 @@ function createUI() {
     gameInfo.className = 'game-info';
     document.body.appendChild(gameInfo);
     window.gameInfo = gameInfo;
+    const controlsHelp = document.createElement('div');
+    controlsHelp.className = 'controls-help';
+    controlsHelp.innerHTML = `
+        <div>Controls:</div>
+        <div>• Left mouse button - rotate camera</div>
+        <div>• Right mouse button - pan camera</div>
+        <div>• Mouse wheel - zoom in/out</div>
+    `;
+    document.body.appendChild(controlsHelp);
     updateUI();
 }
 
