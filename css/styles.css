@@ -50,3 +50,24 @@ canvas {
 .winner-info button:hover {
     background-color: #45a049;
 }
+
+.light-switcher-container {
+    position: fixed;
+    bottom: 120px;
+    right: 20px;
+}
+
+.light-switcher-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.light-switcher-button:hover {
+    background-color: #45a049;
+}

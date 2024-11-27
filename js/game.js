@@ -5,6 +5,7 @@ let INTERSECTED = null;
 let isXNext = true;
 let winInfo = null;
 const SPACING = 2.5;
+let cornerLightsEnabled = false; 
 
 init();
 render();
@@ -20,6 +21,7 @@ function init() {
     document.getElementById('canvas1').appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0xffffff, 10, 50); 
 
     // Create a canvas for the gradient
     const canvas = document.createElement('canvas');
@@ -32,22 +34,17 @@ function init() {
     gradient.addColorStop(0, '#87ceeb'); // Light sky blue
     gradient.addColorStop(1, '#ffffff'); // White
 
-    // Fill the canvas with the gradient
     context.fillStyle = gradient;
     context.fillRect(0, 0, 1, 256);
 
-    // Create a texture and set it as the background
     const bgTexture = new THREE.CanvasTexture(canvas);
     scene.background = bgTexture;
-
     gameBoard = Array(27).fill(null);
 
     setupLights();
-
     addObjects();
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-
     controls.enablePan = true;       // movement
     controls.enableZoom = true;      // scale
     controls.enableRotate = true;    // rotation
@@ -69,17 +66,29 @@ function init() {
 }
 
 function setupLights() {
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
+    const directionalLight1 = new THREE.DirectionalLight(0xff0000, 1); // Red light
+    directionalLight1.position.set(-10, 10, 0);
+    scene.add(directionalLight1);
 
-    const pointLight = new THREE.PointLight(0xffffff, 0.9);
-    pointLight.position.set(-150, 300, -300);
-    scene.add(pointLight);
+    const projector1 = new THREE.Mesh(
+        new THREE.ConeGeometry(0.5, 1, 32),
+        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+    );
+    projector1.position.set(-10, 10, 10);
+    projector1.rotation.x = Math.PI / 2;
+    scene.add(projector1);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(0, 10, 0);
-    scene.add(directionalLight);
+    const directionalLight2 = new THREE.DirectionalLight(0x0000ff, 1); // Blue light
+    directionalLight2.position.set(10, 10, 10);
+    scene.add(directionalLight2);
 
+    const projector2 = new THREE.Mesh(
+        new THREE.ConeGeometry(0.5, 1, 32),
+        new THREE.MeshStandardMaterial({ color: 0x0000ff })
+    );
+    projector2.position.set(10, 10, 10);
+    projector2.rotation.x = Math.PI / 2;
+    scene.add(projector2);
 
     const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xffff00];
     const cornerLights = colors.map((color, index) => {
@@ -98,12 +107,14 @@ function setupLights() {
     window.gameLights = {
         cornerLights,
         update: function(time) {
-            cornerLights.forEach((light, index) => {
-                const angle = ((time / 3000) + (index / colors.length)) * Math.PI * 2;
-                const radius = 8;
-                light.position.x = Math.cos(angle) * radius;
-                light.position.z = Math.sin(angle) * radius;
-            });
+            if (cornerLightsEnabled) {
+                cornerLights.forEach((light, index) => {
+                    const angle = ((time / 3000) + (index / colors.length)) * Math.PI * 2;
+                    const radius = 8;
+                    light.position.x = Math.cos(angle) * radius;
+                    light.position.z = Math.sin(angle) * radius;
+                });
+            }
         }
     };
 }
@@ -269,6 +280,7 @@ function createUI() {
     gameInfo.className = 'game-info';
     document.body.appendChild(gameInfo);
     window.gameInfo = gameInfo;
+
     const controlsHelp = document.createElement('div');
     controlsHelp.className = 'controls-help';
     controlsHelp.innerHTML = `
@@ -278,6 +290,22 @@ function createUI() {
         <div>• Mouse wheel - zoom in/out</div>
     `;
     document.body.appendChild(controlsHelp);
+
+    const lightSwitcherContainer = document.createElement('div');
+    lightSwitcherContainer.className = 'light-switcher-container';
+    document.body.appendChild(lightSwitcherContainer);
+
+    const lightSwitcher = document.createElement('button');
+    lightSwitcher.innerText = 'Toggle Lights';
+    lightSwitcher.className = 'light-switcher-button';
+    lightSwitcher.onclick = () => {
+        cornerLightsEnabled = !cornerLightsEnabled;
+        window.gameLights.cornerLights.forEach(light => {
+            light.visible = cornerLightsEnabled;
+        });
+    };
+    lightSwitcherContainer.appendChild(lightSwitcher);
+
     updateUI();
 }
 
@@ -391,7 +419,6 @@ function calculateWinner(board) {
             2 * 9 + 0 * 3 + col
         ]);
     }
-
     // Spatial diagonals
     lines.push([0, 13, 26]);
     lines.push([2, 13, 24]);
@@ -411,6 +438,5 @@ function calculateWinner(board) {
     if (board.every(cell => cell !== null)) {
         return { winner: 'draw' };
     }
-
     return null;
 }
