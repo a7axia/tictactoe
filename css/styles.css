@@ -71,3 +71,22 @@ canvas {
 .light-switcher-button:hover {
     background-color: #45a049;
 }
+
+.light-color-container {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.light-color-container label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.light-color-container input[type="color"] {
+    display: block;
+    margin-bottom: 10px;
+}

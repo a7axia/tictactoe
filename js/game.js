@@ -6,6 +6,7 @@ let isXNext = true;
 let winInfo = null;
 const SPACING = 2.5;
 let cornerLightsEnabled = false; 
+let coneLightColors = { red: 0xff0000, blue: 0x0000ff };
 
 init();
 render();
@@ -66,25 +67,25 @@ function init() {
 }
 
 function setupLights() {
-    const directionalLight1 = new THREE.DirectionalLight(0xff0000, 1); // Red light
+    const directionalLight1 = new THREE.DirectionalLight(coneLightColors.red, 1); // Red light
     directionalLight1.position.set(-10, 10, 0);
     scene.add(directionalLight1);
 
     const projector1 = new THREE.Mesh(
         new THREE.ConeGeometry(0.5, 1, 32),
-        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+        new THREE.MeshStandardMaterial({ color: coneLightColors.red })
     );
     projector1.position.set(-10, 10, 10);
     projector1.rotation.x = Math.PI / 2;
     scene.add(projector1);
 
-    const directionalLight2 = new THREE.DirectionalLight(0x0000ff, 1); // Blue light
+    const directionalLight2 = new THREE.DirectionalLight(coneLightColors.blue, 1); // Blue light
     directionalLight2.position.set(10, 10, 10);
     scene.add(directionalLight2);
 
     const projector2 = new THREE.Mesh(
         new THREE.ConeGeometry(0.5, 1, 32),
-        new THREE.MeshStandardMaterial({ color: 0x0000ff })
+        new THREE.MeshStandardMaterial({ color: coneLightColors.blue })
     );
     projector2.position.set(10, 10, 10);
     projector2.rotation.x = Math.PI / 2;
@@ -306,6 +307,36 @@ function createUI() {
     };
     lightSwitcherContainer.appendChild(lightSwitcher);
 
+    const lightColorContainer = document.createElement('div');
+    lightColorContainer.className = 'light-color-container';
+    document.body.appendChild(lightColorContainer);
+
+    const redColorLabel = document.createElement('label');
+    redColorLabel.innerText = 'Left Light Color: ';
+    lightColorContainer.appendChild(redColorLabel);
+
+    const redColorPicker = document.createElement('input');
+    redColorPicker.type = 'color';
+    redColorPicker.value = '#ff0000';
+    redColorPicker.oninput = (event) => {
+        coneLightColors.red = parseInt(event.target.value.replace('#', '0x'));
+        updateConeLightColors();
+    };
+    lightColorContainer.appendChild(redColorPicker);
+
+    const blueColorLabel = document.createElement('label');
+    blueColorLabel.innerText = 'Right Light Color: ';
+    lightColorContainer.appendChild(blueColorLabel);
+
+    const blueColorPicker = document.createElement('input');
+    blueColorPicker.type = 'color';
+    blueColorPicker.value = '#0000ff';
+    blueColorPicker.oninput = (event) => {
+        coneLightColors.blue = parseInt(event.target.value.replace('#', '0x'));
+        updateConeLightColors();
+    };
+    lightColorContainer.appendChild(blueColorPicker);
+
     updateUI();
 }
 
@@ -340,6 +371,24 @@ function resetGame() {
     }
 
     updateUI();
+}
+
+function updateConeLightColors() {
+    scene.children.forEach(child => {
+        if (child instanceof THREE.DirectionalLight) {
+            if (child.position.x < 0) {
+                child.color.setHex(coneLightColors.red);
+            } else {
+                child.color.setHex(coneLightColors.blue);
+            }
+        } else if (child instanceof THREE.Mesh && child.geometry instanceof THREE.ConeGeometry) {
+            if (child.position.x < 0) {
+                child.material.color.setHex(coneLightColors.red);
+            } else {
+                child.material.color.setHex(coneLightColors.blue);
+            }
+        }
+    });
 }
 
 function calculateWinner(board) {
