@@ -4,14 +4,17 @@ let raycaster, mouse = { x: 0, y: 0 };
 let INTERSECTED = null;
 let isXNext = true;
 let winInfo = null;
-const SPACING = 2.5;
+let SPACING = 2.5;
 let cornerLightsEnabled = false; 
 let coneLightColors = { red: 0xff0000, blue: 0x0000ff };
+let gridSize = 3; // Game size (3x3x3 by default)
+let totalCells; // Total number of cells
+let modelX, modelO;
 
 init();
 render();
 
-function init() {
+async function init() {
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(-10, -10, -15);
@@ -22,7 +25,25 @@ function init() {
     document.getElementById('canvas1').appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0xffffff, 10, 50); 
+    scene.fog = new THREE.Fog(0xffffff, 10, 50);
+
+    // Load models
+    modelX = await loadOBJectsStandard(
+        0, 0, 0,
+        'models/lemon.obj',             // path to model
+        16, 16, 16,             // scale
+        'models/lemon_tex.jpeg',     // path to texture
+        0xffff00
+    );
+
+    modelO = await loadOBJectsStandard(
+        0, 0, 0,
+        'models/orange.obj',
+        13, 13, 13,
+        'models/orange_tex.jpg',
+        0xffffff
+    );
+
 
     // Create a canvas for the gradient
     const canvas = document.createElement('canvas');
@@ -40,9 +61,14 @@ function init() {
 
     const bgTexture = new THREE.CanvasTexture(canvas);
     scene.background = bgTexture;
-    gameBoard = Array(27).fill(null);
+
+    // Calculate total number of cells
+    totalCells = gridSize * gridSize * gridSize;
+    // Initialise the playing field
+    gameBoard = Array(totalCells).fill(null);
 
     setupLights();
+    createUI();
     addObjects();
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -63,7 +89,7 @@ function init() {
     document.addEventListener('click', onDocumentClick, false);
 
     window.addEventListener('resize', onWindowResize, false);
-    createUI();
+
 }
 
 function setupLights() {
@@ -130,7 +156,11 @@ function addObjects() {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const cellGeometry = new THREE.BoxGeometry(1, 1, 1);
+    // Calculate a new SPACING based on the grid size
+    SPACING = 2.5 * (4 / gridSize);
+
+    const cellSize = 0.8 * (3 / gridSize);
+    const cellGeometry = new THREE.BoxGeometry(cellSize,cellSize,cellSize);
     const defaultMaterial = new THREE.MeshStandardMaterial({
         color: 0x808080,
         opacity: 0.5,
@@ -142,7 +172,11 @@ function addObjects() {
         transparent: true
     });
 
-    for (let i = 0; i < 27; i++) {
+    // Clearing existing cells
+    cells.forEach(cell => scene.remove(cell));
+    cells = [];
+
+    for (let i = 0; i < totalCells; i++) {
         const position = calculatePosition(i);
         const cell = new THREE.Mesh(cellGeometry, defaultMaterial.clone());
         cell.position.copy(position);
@@ -198,10 +232,35 @@ function update() {
 
 }
 
+// Function to load obj models
+function loadOBJectsStandard(x, y, z, path, scalex, scaley, scalez, texturePath, colorMaterial) {
+    var loader = new THREE.OBJLoader();
+    var textureSurface = new THREE.TextureLoader().load(texturePath);
+    var material = new THREE.MeshStandardMaterial({
+        color: colorMaterial,
+        map: textureSurface,
+        roughness: 0.05,
+        metalness: 0.45
+    });
+
+    return new Promise((resolve) => {
+        loader.load(path, function(object) {
+            object.traverse(function(node) {
+                object.position.set(x, y, z);
+                object.material = material;
+                object.scale.set(scalex, scaley, scalez);
+                if (node.isMesh) node.material = material;
+            });
+            resolve(object);
+        });
+    });
+}
+
 function calculatePosition(index) {
-    const x = (index % 3 - 1) * SPACING;
-    const y = (Math.floor(index / 9) - 1) * SPACING;
-    const z = (Math.floor((index % 9) / 3) - 1) * SPACING;
+    const SPACING = 2.5 * (4 / gridSize);
+    const x = (index % gridSize - Math.floor(gridSize/2)) * SPACING;
+    const y = (Math.floor(index / (gridSize * gridSize)) - Math.floor(gridSize/2)) * SPACING;
+    const z = (Math.floor((index % (gridSize * gridSize)) / gridSize) - Math.floor(gridSize/2)) * SPACING;
     return new THREE.Vector3(x, y, z);
 }
 
@@ -221,6 +280,8 @@ function handleMove(index) {
     const mark = isXNext ? 'X' : 'O';
     gameBoard[index] = mark;
 
+    cells[index].visible = false;
+
     const position = calculatePosition(index);
     const markMesh = createMark(mark, position);
     marks.push(markMesh);
@@ -232,7 +293,7 @@ function handleMove(index) {
         updateUI();
         if (result.positions) {
             const startPos = calculatePosition(result.positions[0]);
-            const endPos = calculatePosition(result.positions[2]);
+            const endPos = calculatePosition(result.positions[result.positions.length - 1]);
             const winLine = createWinLine(startPos, endPos);
             scene.add(winLine);
         }
@@ -243,30 +304,41 @@ function handleMove(index) {
 }
 
 function createMark(type, position) {
-    if (type === 'X') {
-        const group = new THREE.Group();
+    const model = type === 'X' ? modelX.clone() : modelO.clone();
+    model.position.copy(position);
+    // Move y down for lemon and orange models only
+    model.position.y -= 0.5;
+    return model;
+}
 
-        const createCross = (rotation) => {
-            const geometry = new THREE.BoxGeometry(1.4, 0.2, 0.2);
-            const material = new THREE.MeshStandardMaterial({ color: 0x0000ff });
-            const cross = new THREE.Mesh(geometry, material);
-            cross.rotation.z = rotation;
-            cross.castShadow = true;
-            return cross;
-        };
 
-        group.add(createCross(Math.PI / 4));
-        group.add(createCross(-Math.PI / 4));
-        group.position.copy(position);
-        return group;
-    } else {
-        const geometry = new THREE.TorusGeometry(0.5, 0.1, 16, 32);
-        const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        const torus = new THREE.Mesh(geometry, material);
-        torus.position.copy(position);
-        torus.castShadow = true;
-        return torus;
-    }
+// function for creating x using primitives
+function createX(position) {
+    const group = new THREE.Group();
+
+    const createCross = (rotation) => {
+        const geometry = new THREE.BoxGeometry(1.4 * (3/gridSize), 0.2, 0.2);
+        const material = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+        const cross = new THREE.Mesh(geometry, material);
+        cross.rotation.z = rotation;
+        cross.castShadow = true;
+        return cross;
+    };
+
+    group.add(createCross(Math.PI / 4));
+    group.add(createCross(-Math.PI / 4));
+    group.position.copy(position);
+    return group;
+}
+
+// function for creating o using primitives
+function createO(position) {
+    const geometry = new THREE.TorusGeometry(0.5 * (3/gridSize), 0.1, 16, 32);
+    const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    const torus = new THREE.Mesh(geometry, material);
+    torus.position.copy(position);
+    torus.castShadow = true;
+    return torus;
 }
 
 function createWinLine(startPos, endPos) {
@@ -337,6 +409,46 @@ function createUI() {
     };
     lightColorContainer.appendChild(blueColorPicker);
 
+    // Add a container for size settings
+    const sizeContainer = document.createElement('div');
+    sizeContainer.className = 'size-controls';
+    document.body.appendChild(sizeContainer);
+
+    // Add a slider to set size
+    const sizeLabel = document.createElement('label');
+    sizeLabel.innerText = 'Grid Size: ';
+    const sizeSlider = document.createElement('input');
+    sizeSlider.type = 'range';
+    sizeSlider.min = '2';
+    sizeSlider.max = '5';
+    sizeSlider.value = '3';
+    sizeSlider.step = '1';
+
+    const sizeValue = document.createElement('span');
+    sizeValue.innerText = `${sizeSlider.value}x${sizeSlider.value}x${sizeSlider.value}`;
+
+    // Apply size button
+    const applyButton = document.createElement('button');
+    applyButton.innerText = 'Apply Size';
+    applyButton.className = 'apply-size-button';
+
+    sizeSlider.oninput = () => {
+        sizeValue.innerText = `${sizeSlider.value}x${sizeSlider.value}x${sizeSlider.value}`;
+    };
+
+    applyButton.onclick = () => {
+        const newSize = parseInt(sizeSlider.value);
+        if (newSize !== gridSize) {
+            gridSize = newSize;
+            resetGame(true);
+        }
+    };
+
+    sizeContainer.appendChild(sizeLabel);
+    sizeContainer.appendChild(sizeSlider);
+    sizeContainer.appendChild(sizeValue);
+    sizeContainer.appendChild(applyButton);
+
     updateUI();
 }
 
@@ -357,8 +469,12 @@ function updateUI() {
     }
 }
 
-function resetGame() {
-    gameBoard = Array(27).fill(null);
+function resetGame(resizing = false) {
+    if (resizing) {
+        totalCells = gridSize * gridSize * gridSize;
+    }
+
+    gameBoard = Array(totalCells).fill(null);
     isXNext = true;
     winInfo = null;
 
@@ -368,6 +484,17 @@ function resetGame() {
     const winLine = scene.children.find(child => child instanceof THREE.Line);
     if (winLine) {
         scene.remove(winLine);
+    }
+
+    cells.forEach(cell => cell.visible = true);
+
+    if (resizing) {
+        addObjects(); // Recreate the playing field
+        // Update the camera position depending on the field size
+        const distance = gridSize === 2 ? 16 : 5 + (gridSize - 2) * 3;
+        camera.position.set(-distance, -distance, -distance);
+        controls.minDistance = distance;
+        controls.maxDistance = distance * 2;
     }
 
     updateUI();
@@ -392,94 +519,24 @@ function updateConeLightColors() {
 }
 
 function calculateWinner(board) {
-    const lines = [];
-
-    // Horizontal lines in each layer
-    for (let layer = 0; layer < 3; layer++) {
-        for (let row = 0; row < 3; row++) {
-            lines.push([
-                layer * 9 + row * 3 + 0,
-                layer * 9 + row * 3 + 1,
-                layer * 9 + row * 3 + 2
-            ]);
-        }
-    }
-
-    // Vertical lines in each layer
-    for (let layer = 0; layer < 3; layer++) {
-        for (let col = 0; col < 3; col++) {
-            lines.push([
-                layer * 9 + 0 * 3 + col,
-                layer * 9 + 1 * 3 + col,
-                layer * 9 + 2 * 3 + col
-            ]);
-        }
-    }
-
-    // Diagonals in each layer
-    for (let layer = 0; layer < 3; layer++) {
-        lines.push([
-            layer * 9 + 0 * 3 + 0,
-            layer * 9 + 1 * 3 + 1,
-            layer * 9 + 2 * 3 + 2
-        ]);
-        lines.push([
-            layer * 9 + 0 * 3 + 2,
-            layer * 9 + 1 * 3 + 1,
-            layer * 9 + 2 * 3 + 0
-        ]);
-    }
-
-    // Vertical lines through layers
-    for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 3; col++) {
-            lines.push([
-                0 * 9 + row * 3 + col,
-                1 * 9 + row * 3 + col,
-                2 * 9 + row * 3 + col
-            ]);
-        }
-    }
-
-    // Diagonals through layers by rows
-    for (let row = 0; row < 3; row++) {
-        lines.push([
-            0 * 9 + row * 3 + 0,
-            1 * 9 + row * 3 + 1,
-            2 * 9 + row * 3 + 2
-        ]);
-        lines.push([
-            0 * 9 + row * 3 + 2,
-            1 * 9 + row * 3 + 1,
-            2 * 9 + row * 3 + 0
-        ]);
-    }
-
-    // Diagonals through layers by columns
-    for (let col = 0; col < 3; col++) {
-        lines.push([
-            0 * 9 + 0 * 3 + col,
-            1 * 9 + 1 * 3 + col,
-            2 * 9 + 2 * 3 + col
-        ]);
-        lines.push([
-            0 * 9 + 2 * 3 + col,
-            1 * 9 + 1 * 3 + col,
-            2 * 9 + 0 * 3 + col
-        ]);
-    }
-    // Spatial diagonals
-    lines.push([0, 13, 26]);
-    lines.push([2, 13, 24]);
-    lines.push([6, 13, 20]);
-    lines.push([8, 13, 18]);
+    const lines = generateWinningLines();
 
     for (let line of lines) {
-        const [a, b, c] = line;
-        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+        const firstValue = board[line[0]];
+        if (!firstValue) continue;
+
+        let isWinningLine = true;
+        for (let i = 1; i < line.length; i++) {
+            if (board[line[i]] !== firstValue) {
+                isWinningLine = false;
+                break;
+            }
+        }
+
+        if (isWinningLine) {
             return {
-                winner: board[a],
-                positions: [a, b, c]
+                winner: firstValue,
+                positions: line
             };
         }
     }
@@ -488,4 +545,84 @@ function calculateWinner(board) {
         return { winner: 'draw' };
     }
     return null;
+}
+
+// Function for generating all possible winning lines
+function generateWinningLines() {
+    const lines = [];
+
+    // Horizontal lines in each layer
+    for (let y = 0; y < gridSize; y++) {
+        for (let z = 0; z < gridSize; z++) {
+            const line = [];
+            for (let x = 0; x < gridSize; x++) {
+                line.push(y * gridSize * gridSize + z * gridSize + x);
+            }
+            lines.push(line);
+        }
+    }
+
+    // Vertical lines in each layer
+    for (let x = 0; x < gridSize; x++) {
+        for (let z = 0; z < gridSize; z++) {
+            const line = [];
+            for (let y = 0; y < gridSize; y++) {
+                line.push(y * gridSize * gridSize + z * gridSize + x);
+            }
+            lines.push(line);
+        }
+    }
+
+    // Vertical lines through layers
+    for (let x = 0; x < gridSize; x++) {
+        for (let y = 0; y < gridSize; y++) {
+            const line = [];
+            for (let z = 0; z < gridSize; z++) {
+                line.push(y * gridSize * gridSize + z * gridSize + x);
+            }
+            lines.push(line);
+        }
+    }
+
+    // Diagonals in each layer
+    for (let x = 0; x < gridSize; x++) {
+        const line1 = [], line2 = [];
+        for (let i = 0; i < gridSize; i++) {
+            line1.push(i * gridSize * gridSize + i * gridSize + x);
+            line2.push(i * gridSize * gridSize + (gridSize - 1 - i) * gridSize + x);
+        }
+        lines.push(line1, line2);
+    }
+
+    // Diagonals through layers by rows
+    for (let y = 0; y < gridSize; y++) {
+        const line1 = [], line2 = [];
+        for (let i = 0; i < gridSize; i++) {
+            line1.push(y * gridSize * gridSize + i * gridSize + i);
+            line2.push(y * gridSize * gridSize + i * gridSize + (gridSize - 1 - i));
+        }
+        lines.push(line1, line2);
+    }
+
+    // Diagonals through layers by columns
+    for (let z = 0; z < gridSize; z++) {
+        const line1 = [], line2 = [];
+        for (let i = 0; i < gridSize; i++) {
+            line1.push(i * gridSize * gridSize + z * gridSize + i);
+            line2.push(i * gridSize * gridSize + z * gridSize + (gridSize - 1 - i));
+        }
+        lines.push(line1, line2);
+    }
+
+    // Main diagonals
+    const mainDiag1 = [], mainDiag2 = [], mainDiag3 = [], mainDiag4 = [];
+    for (let i = 0; i < gridSize; i++) {
+        mainDiag1.push(i * gridSize * gridSize + i * gridSize + i);
+        mainDiag2.push(i * gridSize * gridSize + i * gridSize + (gridSize - 1 - i));
+        mainDiag3.push(i * gridSize * gridSize + (gridSize - 1 - i) * gridSize + i);
+        mainDiag4.push(i * gridSize * gridSize + (gridSize - 1 - i) * gridSize + (gridSize - 1 - i));
+    }
+    lines.push(mainDiag1, mainDiag2, mainDiag3, mainDiag4);
+
+    return lines;
 }
