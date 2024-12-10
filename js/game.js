@@ -15,6 +15,29 @@ init();
 render();
 
 async function init() {
+    showStartupScreen();
+}
+
+function showStartupScreen() {
+    const startupScreen = document.createElement('div');
+    startupScreen.className = 'startup-screen';
+    startupScreen.innerHTML = `
+        <div class="startup-content">
+            <h1>Tic Tac Toe 3D</h1>
+            <p>Developed by: Maksym Perenchuk & Andrei Dzemidovich</p>
+            <button class="start-button">Start Game</button>
+        </div>
+    `;
+    document.body.appendChild(startupScreen);
+
+    const startButton = startupScreen.querySelector('.start-button');
+    startButton.onclick = () => {
+        document.body.removeChild(startupScreen);
+        initGame();
+    };
+}
+
+async function initGame() {
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(-10, -10, -15);
