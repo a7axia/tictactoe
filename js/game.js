@@ -449,6 +449,36 @@ function createUI() {
     sizeContainer.appendChild(sizeValue);
     sizeContainer.appendChild(applyButton);
 
+    // Add a container for the info button
+    const infoButtonContainer = document.createElement('div');
+    infoButtonContainer.className = 'info-button-container';
+    document.body.appendChild(infoButtonContainer);
+
+    // Add the info button
+    const infoButton = document.createElement('button');
+    infoButton.innerText = '?';
+    infoButton.className = 'info-button';
+    infoButton.onclick = () => {
+        const infoWindow = document.createElement('div');
+        infoWindow.className = 'info-window';
+        infoWindow.innerHTML = `
+            <div class="info-content">
+                <h2>Developed by: Maksym Perenchuk & Andrei Dzemidovich</h2>
+                <p>Subject: Introduction to computer graphics</p>
+                <p>Academic year: 2024</p>
+                <p>(KPI FEI TUKE)</p>
+                <button class="close-button">Close</button>
+            </div>
+        `;
+        document.body.appendChild(infoWindow);
+
+        const closeButton = infoWindow.querySelector('.close-button');
+        closeButton.onclick = () => {
+            document.body.removeChild(infoWindow);
+        };
+    };
+    infoButtonContainer.appendChild(infoButton);
+
     updateUI();
 }
 

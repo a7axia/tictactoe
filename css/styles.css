@@ -127,3 +127,44 @@ canvas {
 .apply-size-button:hover {
     background: #45a049;
 }
+
+.info-button-container {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+}
+
+.info-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.info-window {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, s0, 0.1);
+    z-index: 1000;
+}
+
+.info-content {
+    text-align: center;
+}
+
+.close-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+    margin-top: 20px;
+}
