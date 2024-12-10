@@ -10,11 +10,12 @@ let coneLightColors = { red: 0xff0000, blue: 0x0000ff };
 let gridSize = 3; // Game size (3x3x3 by default)
 let totalCells; // Total number of cells
 let modelX, modelO;
+let gameStarted = false;
 
-init();
-render();
+initStartWindow();
 
 async function init() {
+    if (!gameStarted) return;
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(-10, -10, -15);
@@ -90,6 +91,30 @@ async function init() {
 
     window.addEventListener('resize', onWindowResize, false);
 
+}
+
+function initStartWindow() {
+    const startWindow = document.createElement('div');
+    startWindow.className = 'start-window';
+    startWindow.innerHTML = `
+        <div class="start-content">
+            <h1>Welcome to 3D Tic Tac Toe</h1>
+            <p>Developed by: Maksym Perenchuk & Andrei Dzemidovich</p>
+            <p>Subject: Introduction to computer graphics</p>
+            <p>Academic year: 2024</p>
+            <p>(KPI FEI TUKE)</p>
+            <button class="start-button">Start Game</button>
+        </div>
+    `;
+    document.body.appendChild(startWindow);
+
+    const startButton = startWindow.querySelector('.start-button');
+    startButton.onclick = () => {
+        gameStarted = true;
+        document.body.removeChild(startWindow);
+        init();
+        render();
+    };
 }
 
 function setupLights() {
