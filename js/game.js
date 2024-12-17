@@ -7,8 +7,8 @@ let winInfo = null;
 let SPACING = 2.5;
 let cornerLightsEnabled = false; 
 let coneLightColors = { red: 0xff0000, blue: 0x0000ff };
-let gridSize = 3; // Game size (3x3x3 by default)
-let totalCells; // Total number of cells
+let gridSize = 3; // Game size 
+let totalCells; 
 let modelX, modelO;
 let gameStarted = false;
 
@@ -27,6 +27,9 @@ async function init() {
 
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0xffffff, 10, 50);
+
+    raycaster = new THREE.Raycaster();
+    mouse = { x: 0, y: 0 };
 
     // Load models
     modelX = await loadOBJectsStandard(
@@ -227,6 +230,8 @@ function onWindowResize() {
 }
 
 function update() {
+    if (!raycaster || !mouse || !controls) return;
+
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(cells);
 
