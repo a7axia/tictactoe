@@ -326,6 +326,7 @@ function handleMove(index) {
             const endPos = calculatePosition(result.positions[result.positions.length - 1]);
             const winLine = createWinLine(startPos, endPos);
             scene.add(winLine);
+            createWinText(); // Add this line to display the "WIN" text
         }
     } else {
         isXNext = !isXNext;
@@ -374,8 +375,81 @@ function createO(position) {
 function createWinLine(startPos, endPos) {
     const points = [startPos, endPos];
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 5 });
-    return new THREE.Line(geometry, material);
+    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+    const line = new THREE.Line(geometry, material);
+    const colorChangeSpeed = 0.01;
+    let hue = 0;
+
+    function animateLine() {
+        requestAnimationFrame(animateLine);
+
+        // Color change effect
+        hue += colorChangeSpeed;
+        if (hue > 1) hue = 0;
+        material.color.setHSL(hue, 1, 0.5);
+    }
+
+    animateLine();
+    return line;
+}
+
+function createWinText() {
+    const group = new THREE.Group();
+
+    // Create W
+    const wGeometry = new THREE.BoxGeometry(0.2, 1, 0.2);
+    const wMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700 });
+    const w1 = new THREE.Mesh(wGeometry, wMaterial);
+    const w2 = new THREE.Mesh(wGeometry, wMaterial);
+    const w3 = new THREE.Mesh(wGeometry, wMaterial);
+    const w4 = new THREE.Mesh(wGeometry, wMaterial);
+    w1.position.set(-1.2, 0, 0);
+    w2.position.set(-0.75, 0, 0);
+    w3.position.set(-0.75, -0.4, 0);
+    w3.rotation.z = Math.PI / 2; // Rotate 90 degrees
+    w4.position.set(-0.3, 0, 0);
+    group.add(w1, w2, w3, w4);
+
+    // Create I
+    const iGeometry = new THREE.BoxGeometry(0.2, 1, 0.2);
+    const iMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700 });
+    const i = new THREE.Mesh(iGeometry, iMaterial);
+    i.position.set(0.2, 0, 0);
+    group.add(i);
+
+    // Create N
+    const nGeometry = new THREE.BoxGeometry(0.2, 1, 0.2);
+    const nMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700 });
+    const n1 = new THREE.Mesh(nGeometry, nMaterial);
+    const n2 = new THREE.Mesh(nGeometry, nMaterial);
+    const n3 = new THREE.Mesh(nGeometry, nMaterial);
+    n1.position.set(0.8, 0, 0);
+    n2.position.set(1.5, 0, 0);
+    n3.position.set(1.15, -0.01, 0);
+    n3.rotation.z = Math.PI / 4;
+    group.add(n1, n2, n3);
+
+    group.position.set(0, 5, 0); // Position above the cube
+    group.castShadow = true;
+
+    scene.add(group);
+
+    // Animate color change
+    const colorChangeSpeed = 0.01;
+    let hue = 0;
+
+    function animateTextColor() {
+        requestAnimationFrame(animateTextColor);
+
+        // Color change effect
+        hue += colorChangeSpeed;
+        if (hue > 1) hue = 0;
+        group.children.forEach(child => {
+            child.material.color.setHSL(hue, 1, 0.5);
+        });
+    }
+
+    animateTextColor();
 }
 
 function createUI() {
