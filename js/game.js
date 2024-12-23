@@ -18,7 +18,7 @@ async function init() {
     if (!gameStarted) return;
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(-10, -10, -15);
+    camera.position.set(10, 10, 15);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -327,6 +327,39 @@ function handleMove(index) {
             const winLine = createWinLine(startPos, endPos);
             scene.add(winLine);
         }
+
+        // Load and display the "WIN!" text
+        const loader = new THREE.FontLoader();
+        loader.load('fonts/helvetiker_regular.typeface.json', function (font) {
+            const textGeometry = new THREE.TextGeometry('WIN!', {
+                font: font,
+                size: 4,
+                height: 0.5,
+                bevelEnabled: true,
+                bevelThickness: 0.1,
+                bevelSize: 0.07,
+            });
+
+            const textMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+            
+            // Set the position of the text
+            textMesh.position.set(-5, 5, 0); // Change these values to position the text
+
+            scene.add(textMesh);
+            let hue = 0;
+            const colorChangeSpeed = 0.01;
+
+            function animateTextColor() {
+                requestAnimationFrame(animateTextColor);
+                hue += colorChangeSpeed;
+                if (hue > 1) hue = 0;
+                textMaterial.color.setHSL(hue, 1, 0.5);
+            }
+
+            animateTextColor();
+        });
+
     } else {
         isXNext = !isXNext;
         updateUI();
