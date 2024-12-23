@@ -347,6 +347,8 @@ function handleMove(index) {
             textMesh.position.set(-5, 5, 0); // Change these values to position the text
 
             scene.add(textMesh);
+            window.winTextMesh = textMesh; // Store reference to the text mesh
+
             let hue = 0;
             const colorChangeSpeed = 0.01;
 
@@ -595,6 +597,12 @@ function resetGame(resizing = false) {
     }
 
     cells.forEach(cell => cell.visible = true);
+
+    // Remove the "WIN!" text if it exists
+    if (window.winTextMesh) {
+        scene.remove(window.winTextMesh);
+        window.winTextMesh = null;
+    }
 
     if (resizing) {
         addObjects(); // Recreate the playing field
