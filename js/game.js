@@ -10,6 +10,10 @@ let coneLightColors = { red: 0xff0000, blue: 0x0000ff };
 let gridSize = 3; // Game size 
 let totalCells; 
 let modelX, modelO;
+let customModelX = null;
+let customModelO = null;
+let modelXName = null;
+let modelOName = null;
 let gameStarted = false;
 
 initStartWindow();
@@ -286,6 +290,134 @@ function loadOBJectsStandard(x, y, z, path, scalex, scaley, scalez, texturePath,
     });
 }
 
+function handleModelUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check for the same models
+    if (type === 'X' && file.name === modelOName) {
+        showGameAlert('This model is already used for O. Please choose a different model.');
+        event.target.value = '';
+        return;
+    } else if (type === 'O' && file.name === modelXName) {
+        showGameAlert('This model is already used for X. Please choose a different model.');
+        event.target.value = '';
+        return;
+    }
+
+    const loader = new THREE.OBJLoader();
+    const material = new THREE.MeshStandardMaterial({
+        color: type === 'X' ? 0xffff00 : 0xff8c00,
+        roughness: 0.5,
+        metalness: 0.5
+    });
+
+    return new Promise((resolve) => {
+        loader.load(
+            URL.createObjectURL(file),
+            (object) => {
+                object.traverse((child) => {
+                    if (child.isMesh) child.material = material;
+                });
+
+                // Scale new model to default
+                const bbox = new THREE.Box3().setFromObject(object);
+                const size = new THREE.Vector3();
+                bbox.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 1.5 / maxDim;
+                object.scale.set(scale, scale, scale);
+
+                if (type === 'X') {
+                    customModelX = object;
+                    modelXName = file.name;
+                } else {
+                    customModelO = object;
+                    modelOName = file.name;
+                }
+                resolve(object);
+            },
+        );
+    });
+}
+
+function handleTextureUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check if model exists before loading texture
+    if ((type === 'X' && !customModelX) || (type === 'O' && !customModelO)) {
+        showGameAlert('You can\'t load a texture until the model is loaded');
+        event.target.value = '';
+        return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    const material = new THREE.MeshStandardMaterial({
+        roughness: 0.5,
+        metalness: 0.5
+    });
+
+    return new Promise((resolve) => {
+        loader.load(
+            URL.createObjectURL(file),
+            (texture) => {
+                material.map = texture;
+                material.needsUpdate = true;
+
+                if (type === 'X' && customModelX) {
+                    customModelX.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material = material;
+                        }
+                    });
+                } else if (type === 'O' && customModelO) {
+                    customModelO.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material = material;
+                        }
+                    });
+                }
+                resolve(material);
+            },
+        );
+    });
+}
+
+function resetCustomModels() {
+    customModelX = null;
+    customModelO = null;
+    modelOName = null;
+    modelXName = null;
+
+    // Clear file inputs
+    const fileInputs = document.querySelectorAll('.model-upload-container input[type="file"]');
+    fileInputs.forEach(input => {
+        input.value = '';
+    });
+}
+
+// Refuses to load models if the game has started
+function disableFileInputs() {
+    const gameInProgress = gameBoard.some(cell => cell !== null) && !winInfo;
+    const inputs = document.querySelectorAll('.model-upload-container input[type="file"]');
+    inputs.forEach(input => {
+        input.disabled = gameInProgress;
+    });
+}
+
+function showGameAlert(message, duration = 2000) {
+    const alertBox = document.createElement('div');
+    alertBox.className = 'game-alert';
+    alertBox.textContent = message;
+
+    document.body.appendChild(alertBox);
+
+    setTimeout(() => {
+        alertBox.remove();
+    }, duration);
+}
+
 function calculatePosition(index) {
     const SPACING = 2.5 * (4 / gridSize);
     const x = (index % gridSize - Math.floor(gridSize/2)) * SPACING;
@@ -326,7 +458,25 @@ function handleMove(index) {
             const endPos = calculatePosition(result.positions[result.positions.length - 1]);
             const winLine = createWinLine(startPos, endPos);
             scene.add(winLine);
+
+            // Add fireworks
+            const midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+            scene.add(createFirework(midPoint));
+
+            // Add some delayed fireworks
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    const offset = new THREE.Vector3(
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2
+                    );
+                    const fireWorkPos = midPoint.clone().add(offset);
+                    scene.add(createFirework(fireWorkPos));
+                }, i * 500);
+            }
         }
+
 
         // Load and display the "WIN!" text
         const loader = new THREE.FontLoader();
@@ -366,10 +516,18 @@ function handleMove(index) {
         isXNext = !isXNext;
         updateUI();
     }
+    disableFileInputs();
 }
 
 function createMark(type, position) {
-    const model = type === 'X' ? modelX.clone() : modelO.clone();
+    let model;
+    if (type === 'X' && customModelX) {
+        model = customModelX.clone();
+    } else if (type === 'O' && customModelO) {
+        model = customModelO.clone();
+    } else {
+        model = type === 'X' ? modelX.clone() : modelO.clone();
+    }
     model.position.copy(position);
     // Move y down for lemon and orange models only
     model.position.y -= 0.5;
@@ -407,12 +565,23 @@ function createO(position) {
 }
 
 function createWinLine(startPos, endPos) {
-    const points = [startPos, endPos];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-    const line = new THREE.Line(geometry, material);
+    // Create Line2 to change linewidth
+    const positions = new Float32Array([
+        startPos.x, startPos.y, startPos.z,
+        endPos.x, endPos.y, endPos.z
+    ]);
+    const lineGeometry = new THREE.LineGeometry();
+    lineGeometry.setPositions(positions);
+    const lineMaterial = new THREE.LineMaterial({
+        color: 0x00ff00,
+        linewidth: 5,
+        resolution: new THREE.Vector2(window.innerWidth, window.innerHeight)
+    });
+    const line = new THREE.Line2(lineGeometry, lineMaterial);
+
     const colorChangeSpeed = 0.01;
     let hue = 0;
+    let time = 0;
 
     function animateLine() {
         requestAnimationFrame(animateLine);
@@ -420,11 +589,68 @@ function createWinLine(startPos, endPos) {
         // Color change effect
         hue += colorChangeSpeed;
         if (hue > 1) hue = 0;
-        material.color.setHSL(hue, 1, 0.5);
+        lineMaterial.color.setHSL(hue, 1, 0.5);
+
+        time += 0.05;
+        lineMaterial.linewidth = 10.5 + Math.sin(time) * 9.5;
+        lineMaterial.needsUpdate = true;
     }
 
     animateLine();
     return line;
+}
+
+function createFirework(position) {
+    const group = new THREE.Group();
+    const particles = [];
+    const particleCount = 50; // Number
+
+    for (let i = 0; i < particleCount; i++) {
+        const particle = new THREE.Mesh(
+            new THREE.SphereGeometry(0.05, 8, 8),
+            new THREE.MeshBasicMaterial({
+                color: new THREE.Color().setHSL(Math.random(), 1, 0.5),
+                transparent: true
+            })
+        );
+
+        // Set a random direction of movement
+        particle.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.3,
+            (Math.random() - 0.5) * 0.3,
+            (Math.random() - 0.5) * 0.3
+        );
+        particle.userData.life = 1.0;
+
+        particle.position.copy(position);
+        particles.push(particle);
+        group.add(particle);
+    }
+
+    function animateFirework() {
+        let alive = false;
+        particles.forEach(particle => {
+            if (particle.userData.life > 0) {
+                alive = true;
+                // Particle movement
+                particle.position.add(particle.userData.velocity);
+                // Reduced particle lifetime and transparency
+                particle.userData.life -= 0.02;
+                particle.material.opacity = particle.userData.life;
+                particle.userData.velocity.multiplyScalar(0.98);
+            }
+        });
+
+        if (alive) {
+            // calls this function before each frame
+            requestAnimationFrame(animateFirework);
+        } else {
+            scene.remove(group);
+        }
+    }
+
+    animateFirework();
+    return group;
 }
 
 
@@ -529,6 +755,82 @@ function createUI() {
     sizeContainer.appendChild(sizeValue);
     sizeContainer.appendChild(applyButton);
 
+    // Add container for model upload controls
+    const modelUploadContainer = document.createElement('div');
+    modelUploadContainer.className = 'model-upload-container';
+    document.body.appendChild(modelUploadContainer);
+
+    // Title for model upload container
+    const titleLabel = document.createElement('div');
+    titleLabel.innerText = 'Custom Models (.obj) & Textures (.jpeg,.jpg,.png)';
+    titleLabel.className = 'model-title';
+    modelUploadContainer.appendChild(titleLabel);
+
+    // X Model Group
+    const xGroup = document.createElement('div');
+    xGroup.className = 'model-group';
+
+    const xLabel = document.createElement('div');
+    xLabel.innerText = 'X Model & Texture:';
+    xGroup.appendChild(xLabel);
+
+    const xModelInput = document.createElement('input');
+    xModelInput.type = 'file';
+    xModelInput.accept = '.obj';
+    xModelInput.className = 'input-file';
+    xModelInput.onchange = (e) => handleModelUpload(e, 'X');
+    xGroup.appendChild(xModelInput);
+
+    const xTextureInput = document.createElement('input');
+    xTextureInput.type = 'file';
+    xTextureInput.accept = '.jpg,.jpeg,.png';
+    xTextureInput.className = 'input-file';
+    xTextureInput.onchange = (e) => handleTextureUpload(e, 'X');
+    xGroup.appendChild(xTextureInput);
+
+    modelUploadContainer.appendChild(xGroup);
+
+    // O Model Group
+    const oGroup = document.createElement('div');
+    oGroup.className = 'model-group';
+
+    const oLabel = document.createElement('div');
+    oLabel.innerText = 'O Model & Texture:';
+    oGroup.appendChild(oLabel);
+
+    const oModelInput = document.createElement('input');
+    oModelInput.type = 'file';
+    oModelInput.accept = '.obj';
+    oModelInput.className = 'input-file';
+    oModelInput.onchange = (e) => handleModelUpload(e, 'O');
+    oGroup.appendChild(oModelInput);
+
+    const oTextureInput = document.createElement('input');
+    oTextureInput.type = 'file';
+    oTextureInput.accept = '.jpg,.jpeg,.png';
+    oTextureInput.className = 'input-file';
+    oTextureInput.onchange = (e) => handleTextureUpload(e, 'O');
+    oGroup.appendChild(oTextureInput);
+
+    modelUploadContainer.appendChild(oGroup);
+
+    // Reset models button
+    const resetButton = document.createElement('button');
+    resetButton.innerText = 'Reset Models';
+    resetButton.className = 'reset-button';
+    resetButton.onclick = () => {
+        // Check if game is in progress
+        const gameInProgress = gameBoard.some(cell => cell !== null) && !winInfo;
+        if (gameInProgress) {
+            showGameAlert('Cannot reset models while game is in progress!');
+            return;
+        }
+        resetCustomModels();
+    };
+    modelUploadContainer.appendChild(resetButton);
+
+
+
     // Add a container for the info button
     const infoButtonContainer = document.createElement('div');
     infoButtonContainer.className = 'info-button-container';
@@ -614,6 +916,7 @@ function resetGame(resizing = false) {
     }
 
     updateUI();
+    disableFileInputs();
 }
 
 function updateConeLightColors() {

@@ -135,6 +135,82 @@ canvas {
     background: #45a049;
 }
 
+.model-upload-container {
+    position: fixed;
+    top: 250px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 15px;
+    border-radius: 4px;
+    width: 250px;
+    z-index: 1;
+}
+
+.model-upload-container div {
+    margin-bottom: 10px;
+}
+
+.model-group {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.input-file {
+    margin: 5px 0;
+    width: 100%;
+    color: white;
+    font-size: 10px;
+}
+
+.model-title {
+    text-align: center;
+    margin-bottom: 15px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.reset-button {
+    width: 100%;
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: 'Press Start 2P', cursive;
+}
+
+.reset-button:hover {
+    background-color: #45a049;
+}
+
+.game-alert {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 4px;
+    z-index: 1000;
+    text-align: center;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 12px;
+    animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, -20px); }
+    15% { opacity: 1; transform: translate(-50%, 0); }
+    85% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -20px); }
+}
+
 .info-button-container {
     position: absolute;
     bottom: 10px;
