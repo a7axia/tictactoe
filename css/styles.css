@@ -39,6 +39,7 @@ canvas {
     align-items: center;
 }
 
+.turn-indicator button,
 .winner-info button {
     padding: 8px 16px;
     border: none;
@@ -51,9 +52,24 @@ canvas {
     font-family: 'Press Start 2P', cursive; /* Add this line */
 }
 
+.turn-indicator button:hover,
 .winner-info button:hover {
     background-color: #45a049;
 }
+
+.turn-indicator {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    align-items: center;
+    width: 155px;
+}
+
+.turn-indicator div {
+    text-align: center;
+    width: 100%;
+}
+
 
 .light-switcher-container {
     position: fixed;

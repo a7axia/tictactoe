@@ -6,9 +6,10 @@ let isXNext = true;
 let winInfo = null;
 let SPACING = 2.5;
 let cornerLightsEnabled = false; 
-let coneLightColors = { red: 0xff0000, blue: 0x0000ff };
-let gridSize = 3; // Game size 
-let totalCells; 
+let coneLightColors = { red: 0xffffff, blue: 0xffffff };
+let gridSize = 3; // Game size
+let totalCells;
+let backgroundTime = Math.random() * 255;
 let modelX, modelO;
 let customModelX = null;
 let customModelO = null;
@@ -52,24 +53,7 @@ async function init() {
         0xffffff
     );
 
-
-    // Create a canvas for the gradient
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-
-    // Create a vertical gradient
-    const gradient = context.createLinearGradient(0, 0, 0, 256);
-    gradient.addColorStop(0, '#87ceeb'); // Light sky blue
-    gradient.addColorStop(1, '#ffffff'); // White
-
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 1, 256);
-
-    const bgTexture = new THREE.CanvasTexture(canvas);
-    scene.background = bgTexture;
-
+    updateBackground();
     // Calculate total number of cells
     totalCells = gridSize * gridSize * gridSize;
     // Initialise the playing field
@@ -178,6 +162,31 @@ function setupLights() {
     };
 }
 
+function updateBackground() {
+    backgroundTime += 0.001;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+
+    const gradient = context.createLinearGradient(0, 0, 0, 256);
+
+    // Use sin to change colors smoothly
+    const r1 = Math.sin(backgroundTime) * 127 + 128;
+    const g1 = Math.sin(backgroundTime + 2) * 127 + 128;
+    const b1 = Math.sin(backgroundTime + 4) * 127 + 128;
+
+    gradient.addColorStop(0, `rgb(${r1},${g1},${b1})`);
+    gradient.addColorStop(1, '#ffffff');
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 1, 256);
+
+    const bgTexture = new THREE.CanvasTexture(canvas);
+    scene.background = bgTexture;
+}
+
 function addObjects() {
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(100, 100),
@@ -235,6 +244,8 @@ function onWindowResize() {
 
 function update() {
     if (!raycaster || !mouse || !controls) return;
+
+    updateBackground();
 
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(cells);
@@ -531,6 +542,29 @@ function createMark(type, position) {
     model.position.copy(position);
     // Move y down for lemon and orange models only
     model.position.y -= 0.5;
+
+    // Save original scale
+    const originalScale = {
+        x: model.scale.x,
+        y: model.scale.y,
+        z: model.scale.z
+    };
+
+    let progress = 0;
+
+    function animateAppear() {
+        if (progress < 1) {
+            progress += 0.05;
+            model.scale.set(
+                originalScale.x * progress,
+                originalScale.y * progress,
+                originalScale.z * progress
+            );
+            requestAnimationFrame(animateAppear);
+        }
+    }
+    animateAppear();
+
     return model;
 }
 
@@ -695,7 +729,7 @@ function createUI() {
 
     const redColorPicker = document.createElement('input');
     redColorPicker.type = 'color';
-    redColorPicker.value = '#ff0000';
+    redColorPicker.value = '#ffffff';
     redColorPicker.oninput = (event) => {
         coneLightColors.red = parseInt(event.target.value.replace('#', '0x'));
         updateConeLightColors();
@@ -708,7 +742,7 @@ function createUI() {
 
     const blueColorPicker = document.createElement('input');
     blueColorPicker.type = 'color';
-    blueColorPicker.value = '#0000ff';
+    blueColorPicker.value = '#ffffff';
     blueColorPicker.oninput = (event) => {
         coneLightColors.blue = parseInt(event.target.value.replace('#', '0x'));
         updateConeLightColors();
@@ -875,7 +909,8 @@ function updateUI() {
     } else {
         window.gameInfo.innerHTML = `
             <div class="turn-indicator">
-                ${isXNext ? "X's" : "O's"} move
+                <div>${isXNext ? "X's" : "O's"} move</div>
+                <button onclick="resetGame()">Restart Game</button>
             </div>
         `;
     }
