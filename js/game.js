@@ -638,9 +638,20 @@ function createO(position) {
 
 function createWinLine(startPos, endPos) {
     // Create Line2 to change linewidth
+    const adjustedStartPos = new THREE.Vector3(
+        startPos.x + 0.1,
+        startPos.y + 0.3,
+        startPos.z - 0.6
+    );
+    const adjustedEndPos = new THREE.Vector3(
+        endPos.x + 0.1,
+        endPos.y + 0.3,
+        endPos.z - 0.6
+    );
+
     const positions = new Float32Array([
-        startPos.x, startPos.y, startPos.z,
-        endPos.x, endPos.y, endPos.z
+        adjustedStartPos.x, adjustedStartPos.y, adjustedStartPos.z,
+        adjustedEndPos.x, adjustedEndPos.y, adjustedEndPos.z
     ]);
     const lineGeometry = new THREE.LineGeometry();
     lineGeometry.setPositions(positions);
