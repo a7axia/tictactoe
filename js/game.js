@@ -10,7 +10,7 @@ let coneLightColors = { red: 0xffffff, blue: 0xffffff };
 let gridSize = 3; // Game size
 let totalCells;
 let backgroundTime = Math.random() * 255;
-let modelX, modelO;
+let modelX, modelO, cellModel;
 let customModelX = null;
 let customModelO = null;
 let modelXName = null;
@@ -21,6 +21,8 @@ initStartWindow();
 
 async function init() {
     if (!gameStarted) return;
+
+    AudioSystem.init();
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(10, 10, 15);
@@ -40,7 +42,7 @@ async function init() {
     modelX = await loadOBJectsStandard(
         0, 0, 0,
         'models/lemon.obj',             // path to model
-        16, 16, 16,             // scale
+        15, 15, 15,             // scale
         'models/lemon_tex.jpeg',     // path to texture
         0xffff00
     );
@@ -48,9 +50,17 @@ async function init() {
     modelO = await loadOBJectsStandard(
         0, 0, 0,
         'models/orange.obj',
-        13, 13, 13,
+        12, 12, 12,
         'models/orange_tex.jpg',
         0xffffff
+    );
+
+    cellModel = await loadOBJectsStandard(
+        0, 0, 0,
+        'models/box.obj',
+        1, 1, 1,
+        null,
+        0x808080
     );
 
     updateBackground();
@@ -219,11 +229,21 @@ function addObjects() {
 
     for (let i = 0; i < totalCells; i++) {
         const position = calculatePosition(i);
-        const cell = new THREE.Mesh(cellGeometry, defaultMaterial.clone());
+        const cell = cellModel.clone();
+
+        cell.traverse(node => {
+            if (node.isMesh) {
+                node.material = defaultMaterial.clone();
+                node.userData.defaultMaterial = node.material;
+                node.userData.highlightMaterial = highlightMaterial.clone();
+            }
+        });
+
+        const scale = 0.8 * (3 / gridSize);
+        cell.scale.set(scale, scale, scale);
+
         cell.position.copy(position);
         cell.userData.index = i;
-        cell.userData.defaultMaterial = cell.material;
-        cell.userData.highlightMaterial = highlightMaterial.clone();
         cells.push(cell);
         scene.add(cell);
     }
@@ -248,24 +268,31 @@ function update() {
     updateBackground();
 
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(cells);
+    const intersects = raycaster.intersectObjects(cells, true);
 
     if (INTERSECTED !== null && INTERSECTED >= 0 && INTERSECTED < cells.length) {
         const prevCell = cells[INTERSECTED];
-        if (prevCell && prevCell.userData) {
-            prevCell.material = prevCell.userData.defaultMaterial;
-        }
+        prevCell.traverse(node => {
+            if (node.isMesh) {
+                node.material = node.userData.defaultMaterial;
+            }
+        });
     }
 
     INTERSECTED = null;
     if (intersects.length > 0) {
-        const index = intersects[0].object.userData.index;
+        let cell = intersects[0].object;
+        while (cell.parent && !cell.userData.hasOwnProperty('index')) {
+            cell = cell.parent;
+        }
+        const index = cell.userData.index;
         if (index !== undefined && !gameBoard[index] && !winInfo) {
             INTERSECTED = index;
-            const cell = cells[index];
-            if (cell && cell.userData) {
-                cell.material = cell.userData.highlightMaterial;
-            }
+            cell.traverse(node => {
+                if (node.isMesh) {
+                    node.material = node.userData.highlightMaterial;
+                }
+            });
         }
     }
 
@@ -280,13 +307,15 @@ function update() {
 // Function to load obj models
 function loadOBJectsStandard(x, y, z, path, scalex, scaley, scalez, texturePath, colorMaterial) {
     var loader = new THREE.OBJLoader();
-    var textureSurface = new THREE.TextureLoader().load(texturePath);
     var material = new THREE.MeshStandardMaterial({
         color: colorMaterial,
-        map: textureSurface,
         roughness: 0.05,
         metalness: 0.45
     });
+
+    if (texturePath) {
+        material.map = new THREE.TextureLoader().load(texturePath);
+    }
 
     return new Promise((resolve) => {
         loader.load(path, function(object) {
@@ -450,10 +479,16 @@ function onDocumentClick() {
 }
 
 function handleMove(index) {
+    AudioSystem.play('place');
+
     const mark = isXNext ? 'X' : 'O';
     gameBoard[index] = mark;
 
-    cells[index].visible = false;
+    cells[index].traverse(node => {
+        if (node.isMesh) {
+            node.visible = false;
+        }
+    });
 
     const position = calculatePosition(index);
     const markMesh = createMark(mark, position);
@@ -462,6 +497,7 @@ function handleMove(index) {
 
     const result = calculateWinner(gameBoard);
     if (result) {
+        AudioSystem.play('win');
         winInfo = result;
         updateUI();
         if (result.positions) {
@@ -540,8 +576,10 @@ function createMark(type, position) {
         model = type === 'X' ? modelX.clone() : modelO.clone();
     }
     model.position.copy(position);
-    // Move y down for lemon and orange models only
-    model.position.y -= 0.5;
+    // Move
+    model.position.x += 0.1;
+    model.position.z += -0.6;
+    model.position.y += -0.1;
 
     // Save original scale
     const originalScale = {
@@ -895,6 +933,12 @@ function createUI() {
     };
     infoButtonContainer.appendChild(infoButton);
 
+    document.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', () => {
+            AudioSystem.play('click');
+        });
+    });
+
     updateUI();
 }
 
@@ -921,6 +965,8 @@ function resetGame(resizing = false) {
         totalCells = gridSize * gridSize * gridSize;
     }
 
+    AudioSystem.play('newGame');
+
     gameBoard = Array(totalCells).fill(null);
     isXNext = true;
     winInfo = null;
@@ -928,12 +974,18 @@ function resetGame(resizing = false) {
     marks.forEach(mark => scene.remove(mark));
     marks = [];
 
-    const winLine = scene.children.find(child => child instanceof THREE.Line);
+    const winLine = scene.children.find(child => child instanceof THREE.Line2);
     if (winLine) {
         scene.remove(winLine);
     }
 
-    cells.forEach(cell => cell.visible = true);
+    cells.forEach(cell => {
+        cell.traverse(node => {
+            if (node.isMesh) {
+                node.visible = true;
+            }
+        });
+    });
 
     // Remove the "WIN!" text if it exists
     if (window.winTextMesh) {
@@ -947,7 +999,7 @@ function resetGame(resizing = false) {
         const distance = gridSize === 2 ? 16 : 5 + (gridSize - 2) * 3;
         camera.position.set(-distance, -distance, -distance);
         controls.minDistance = distance;
-        controls.maxDistance = distance * 2;
+        controls.maxDistance = distance * 4;
     }
 
     updateUI();
@@ -1080,3 +1132,29 @@ function generateWinningLines() {
 
     return lines;
 }
+
+const AudioSystem = {
+    sounds: {},
+    initialized: false,
+
+    init() {
+        if (this.initialized) return;
+
+        this.sounds = {
+            place: new Audio('sounds/place.mp3'),
+            win: new Audio('sounds/win.mp3'),
+            click: new Audio('sounds/click.mp3'),
+            newGame: new Audio('sounds/newgame.mp3')
+        };
+
+        this.initialized = true;
+    },
+
+    play(soundName) {
+        if (!this.initialized || !this.sounds[soundName]) return;
+
+        const sound = this.sounds[soundName];
+        sound.currentTime = 0; // Reset the sound to allow repeat playing
+        sound.play();
+    }
+};
